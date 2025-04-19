@@ -1,0 +1,5 @@
+.qodo
+node_modules/
+.next/
+keys/
+.env.local
