@@ -10,8 +10,8 @@ if (process.env.GCP_SERVICE_ACCOUNT_KEY) {
   // só cai aqui em dev local se você tiver o arquivo em keys/
   const path = require("path");
   const fs = require("fs");
-  const keyPath = path.join(process.cwd(), "keys", "bigquery‑sa2.json");
-  credentials = JSON.parse(fs.readFileSync(keyPath, "utf‑8"));
+  const keyPath = path.join(process.cwd(), "keys", "bigquery-sa2.json");
+  credentials = JSON.parse(fs.readFileSync(keyPath, "utf-8"));
 }
 
 const bigquery = new BigQuery({

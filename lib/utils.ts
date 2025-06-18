@@ -54,3 +54,7 @@ export function exportXLSX(data: any[], filename = "export.xlsx") {
 export function copiarParaPrancheta(text: string) {
   navigator.clipboard.writeText(text);
 }
+
+export function cn(...classes: (string | undefined | false | null)[]) {
+  return classes.filter(Boolean).join(" ");
+}
