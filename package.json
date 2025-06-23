@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@google-cloud/bigquery": "^7.7.0",
+    "encoding": "^0.1.13",
     "next": "13.4.13",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.6",
+    "openai": "^5.5.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "xlsx": "^0.18.5"
