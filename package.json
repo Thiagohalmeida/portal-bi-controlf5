@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@google-cloud/bigquery": "^7.7.0",
+    "@google-cloud/bigquery": "^6.0.0",
     "encoding": "^0.1.13",
     "next": "13.4.13",
     "next-auth": "^4.24.11",
