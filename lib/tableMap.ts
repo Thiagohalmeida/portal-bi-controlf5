@@ -10,7 +10,7 @@ export interface TableMapEntry {
   
   export const tableMap: Record<string, TableMapEntry> = {
     Funil_Granular: {
-      label: "Funil Granular",
+      label: "Trafego_Facebook",
       dataset: "Ads",
       table: "Funil_Granular",
       dateField: "data_inicio",
@@ -34,7 +34,7 @@ export interface TableMapEntry {
     },
   
     EngajamentoFacebook: {
-      label: "Engajamento Facebook",
+      label: "Growth Facebook",
       dataset: "Midias",
       table: "EngajamentoFacebook",
       dateField: "data",
@@ -62,7 +62,7 @@ export interface TableMapEntry {
     },
   
     EngajamentoInstagram: {
-      label: "Engajamento Instagram",
+      label: "Growth Instagram",
       dataset: "Midias_Instagram",
       table: "EngajamentoInstagram",
       dateField: "data",
@@ -80,6 +80,22 @@ export interface TableMapEntry {
       ],
       prompt:
         "Você é um analista de redes sociais. Analise os indicadores de postagens do **Instagram** dos clientes entre {dataInicio} e {dataFim}:"
+    },
+    CampanhaGoogleAds: {
+      label: "Campanha Google Ads",
+      dataset: "Ads",
+      table: "Google_Daily",
+      dateField: "data",
+      clientField: "cliente",
+      metrics: [
+        "spend",
+        "clicks",
+        "conversions",
+        "impressions",
+        "all_conversions_value"
+        ],
+      prompt:
+        "Você é um analista de campanhas Google Ads. Analise os indicadores das campanhas entre {dataInicio} e {dataFim}:"
     }
   };
   
