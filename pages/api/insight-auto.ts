@@ -34,7 +34,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     GROUP BY cliente
   `;
 
-  const bq = new BigQuery({ keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS });
+  // Substitua esta linha:
+  // const bq = new BigQuery({ keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS });
+  // Por este bloco:
+  const projectId = process.env.BQ_PROJECT_ID!;
+  const clientEmail = process.env.BQ_CLIENT_EMAIL!;
+  const privateKey = (process.env.BQ_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
+
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error("BigQuery ENV missing:", {
+      hasProjectId: !!projectId,
+      hasClientEmail: !!clientEmail,
+      hasPrivateKey: !!privateKey,
+    });
+    return res.status(500).json({ error: "Credenciais do BigQuery ausentes ou inválidas." });
+  }
+
+  const bq = new BigQuery({
+    projectId,
+    credentials: {
+      client_email: clientEmail,
+      private_key: privateKey,
+    },
+  });
   const [rows] = await bq.query({ query });
 
   if (rows.length === 0) {
