@@ -2,7 +2,6 @@
 "use client";
 import React, { useState } from "react";
 import { metadados } from "@/data/metadados";
-import { presets, Preset } from "@/data/presets";
 import {
   gerarQuerySQL,
   exportCSV,
@@ -10,64 +9,61 @@ import {
   copiarParaPrancheta,
 } from "@/lib/utils";
 
-// "Aplaina" campos { value: ... } para uma tabela mais legível
+// Flatten para campos do BQ que vêm como { value: ... }
 function flattenRow(row: any) {
   const flat: Record<string, any> = {};
-  for (const [key, value] of Object.entries(row)) {
-    if (value && typeof value === "object" && (value as any).value !== undefined) {
-      flat[key] = (value as any).value;
+  for (const [k, v] of Object.entries(row)) {
+    if (v && typeof v === "object" && (v as any).value !== undefined) {
+      flat[k] = (v as any).value;
     } else {
-      flat[key] = value;
+      flat[k] = v;
     }
   }
   return flat;
 }
 
 export function ExecuteQuery() {
-  const [area, setArea] = useState<string>("");
-  const [dataset, setDataset] = useState<string>("");
-  const [tabela, setTabela] = useState<string>("");
-  const [sql, setSql] = useState<string>("");
+  const [area, setArea] = useState("");
+  const [dataset, setDataset] = useState("");
+  const [tabela, setTabela] = useState("");
+  const [sql, setSql] = useState("");
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const areas = [...new Set(metadados.map((m) => m.area))];
+  const datasetsDaArea = metadados.filter((m) => m.area === area);
+  const tabelasDoDataset =
+    datasetsDaArea.find((d) => d.dataset === dataset)?.tabelas || [];
 
   const handleGenerate = () => {
-    setErrorMsg(null);
     setRows([]);
+    setErr(null);
+    if (!dataset || !tabela) return;
     setSql(gerarQuerySQL(dataset, tabela));
   };
 
   const handleExecute = async () => {
-    if (!sql) return;
+    setErr(null);
     setLoading(true);
-    setErrorMsg(null);
     setRows([]);
-
     try {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: sql }),
       });
-
       const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body?.error || "Erro na execução da consulta");
-      }
+      if (!res.ok) throw new Error(body.error || "Falha ao executar");
 
-      setRows(body?.data || body?.rows || []);
+      const data = body.data || body.rows || [];
+      setRows(data);
     } catch (e: any) {
-      setErrorMsg(e?.message || "Erro ao executar consulta");
+      setErr(e.message);
     } finally {
       setLoading(false);
     }
   };
-
-  const areas = [...new Set(metadados.map((m) => m.area))];
-  const datasetsDaArea = metadados.filter((m) => m.area === area);
-  const tabelasDoDataset =
-    datasetsDaArea.find((d) => d.dataset === dataset)?.tabelas || [];
 
   const rowsFlat = rows.map(flattenRow);
 
@@ -77,11 +73,17 @@ export function ExecuteQuery() {
         <div className="space-y-4 w-full lg:w-1/3">
           <select
             value={area}
-            onChange={(e) => setArea(e.target.value)}
+            onChange={(e) => {
+              setArea(e.target.value);
+              setDataset("");
+              setTabela("");
+              setSql("");
+              setRows([]);
+            }}
             className="w-full border p-2 rounded bg-white text-black dark:bg-gray-800 dark:text-white"
           >
             <option value="">Selecione a área</option>
-            {areas.map((a: string) => (
+            {areas.map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>
@@ -90,7 +92,12 @@ export function ExecuteQuery() {
 
           <select
             value={dataset}
-            onChange={(e) => setDataset(e.target.value)}
+            onChange={(e) => {
+              setDataset(e.target.value);
+              setTabela("");
+              setSql("");
+              setRows([]);
+            }}
             disabled={!area}
             className="w-full border p-2 rounded bg-white text-black dark:bg-gray-800 dark:text-white"
           >
@@ -104,11 +111,15 @@ export function ExecuteQuery() {
 
           <select
             value={tabela}
-            onChange={(e) => setTabela(e.target.value)}
+            onChange={(e) => {
+              setTabela(e.target.value);
+              setSql("");
+              setRows([]);
+            }}
             disabled={!dataset}
             className="w-full border p-2 rounded bg-white text-black dark:bg-gray-800 dark:text-white"
           >
-            <option value="">Selecione a tabela desejada</option>
+            <option value="">Selecione a tabela</option>
             {tabelasDoDataset.map((t) => (
               <option key={t.nome} value={t.nome}>
                 {t.nome}
@@ -116,25 +127,24 @@ export function ExecuteQuery() {
             ))}
           </select>
 
-          <div className="flex space-x-2">
+          <div className="flex gap-2">
             <button
-              className="flex-1 bg-yellow-500 text-black py-2 rounded hover:bg-yellow-400 dark:bg-yellow-400 dark:text-black dark:hover:bg-yellow-300 transition"
               onClick={handleGenerate}
+              disabled={!tabela}
+              className="flex-1 bg-yellow-500 text-black py-2 rounded hover:bg-yellow-400"
             >
               Gerar SQL
             </button>
             <button
-              className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-500 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400 transition"
               onClick={handleExecute}
-              disabled={loading || !sql}
+              disabled={!sql || loading}
+              className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-500 disabled:opacity-50"
             >
               {loading ? "Executando..." : "Executar"}
             </button>
           </div>
 
-          {errorMsg && (
-            <p className="text-red-600 text-sm mt-2">{errorMsg}</p>
-          )}
+          {err && <p className="text-red-600 text-sm">{err}</p>}
         </div>
 
         <pre className="flex-1 bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-auto min-h-[120px] text-sm text-gray-900 dark:text-gray-100">
@@ -142,23 +152,22 @@ export function ExecuteQuery() {
         </pre>
       </div>
 
-      {/* Resultado */}
       {rowsFlat.length > 0 && (
         <div className="mt-6">
           <h3 className="font-semibold mb-2 text-gray-900 dark:text-gray-100">
-            Resultado gerado
+            Resultado
           </h3>
 
-          <div className="flex space-x-2 mb-2">
+          <div className="flex gap-2 mb-2">
             <button
               onClick={() => exportCSV(rowsFlat)}
-              className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-400 dark:bg-green-600 dark:hover:bg-green-500"
+              className="px-3 py-1 bg-green-500 text-white rounded"
             >
               CSV
             </button>
             <button
               onClick={() => exportXLSX(rowsFlat)}
-              className="px-3 py-1 bg-green-700 text-white rounded hover:bg-green-600 dark:bg-green-800 dark:hover:bg-green-700"
+              className="px-3 py-1 bg-green-700 text-white rounded"
             >
               XLSX
             </button>
@@ -166,7 +175,7 @@ export function ExecuteQuery() {
               onClick={() =>
                 copiarParaPrancheta(JSON.stringify(rowsFlat, null, 2))
               }
-              className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-500 dark:bg-gray-700 dark:hover:bg-gray-600"
+              className="px-3 py-1 bg-gray-600 text-white rounded"
             >
               Copiar JSON
             </button>
@@ -176,24 +185,18 @@ export function ExecuteQuery() {
             <table className="w-full text-sm border-collapse">
               <thead className="bg-gray-200 dark:bg-gray-700">
                 <tr>
-                  {Object.keys(rowsFlat[0]).map((col) => (
-                    <th
-                      key={col}
-                      className="border p-2 whitespace-nowrap text-gray-900 dark:text-gray-100"
-                    >
-                      {col}
+                  {Object.keys(rowsFlat[0]).map((c) => (
+                    <th key={c} className="border p-2 whitespace-nowrap">
+                      {c}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rowsFlat.map((row, i) => (
-                  <tr key={i} className="bg-white dark:bg-gray-800">
-                    {Object.values(row).map((v, j) => (
-                      <td
-                        key={j}
-                        className="border p-1 whitespace-nowrap text-gray-900 dark:text-gray-100"
-                      >
+                {rowsFlat.map((r, i) => (
+                  <tr key={i}>
+                    {Object.values(r).map((v, j) => (
+                      <td key={j} className="border p-1 whitespace-nowrap">
                         {String(v)}
                       </td>
                     ))}
