@@ -1,40 +1,34 @@
-// pages/api/query.ts
-import { NextApiRequest, NextApiResponse } from "next"
-import { BigQuery } from "@google-cloud/bigquery"
-import path from "path"
-import fs from "fs"
+import { tableMap, TableMapEntry } from "./tableMap";
+import { getPagePathByPropertyId } from "./propertyIdToPagePathMap";
+import { buildInsightSQL } from "../app/api/query/route"; // Import buildInsightSQL from route.ts
 
-// Verifica se está no ambiente server-side
-const isServer = typeof window === "undefined"
+const PROJECT_ID = process.env.BQ_PROJECT_ID || process.env.BQ_PROJECT || "worlddata-439415";
 
-let bigquery: BigQuery
+type BuildOpts = {
+  origem: keyof typeof tableMap;
+  dataInicio: string;          // "YYYY-MM-DD"
+  dataFim: string;             // "YYYY-MM-DD"
+  cliente: string;             // pode vir "string", mas pode representar INT64 (GA4)
+};
 
-if (isServer) {
-  const keyPath = path.join(process.cwd(), "keys", "bigquery-sa.json")
-  const credentials = JSON.parse(fs.readFileSync(keyPath, "utf-8"))
+// Esta função agora apenas chama a função buildInsightSQL do route.ts
+export function buildInsightQuery({ origem, dataInicio, dataFim, cliente }: BuildOpts) {
+  const entry = tableMap[origem];
+  if (!entry) throw new Error(`Origem inválida: ${origem}`);
 
-  bigquery = new BigQuery({
-    credentials,
-    projectId: credentials.project_id,
-    location: "US"
-  })
+  // buildInsightSQL já lida com a construção completa da query, incluindo agregação e CASTs
+  const { sql, params } = buildInsightSQL(
+    PROJECT_ID,
+    entry,
+    dataInicio,
+    dataFim,
+    cliente
+  );
+
+  // Retorna a query SQL e os parâmetros
+  return { sql, params };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).end("Método não permitido")
 
-  const { query } = req.body
 
-  if (!query || typeof query !== "string") {
-    return res.status(400).json({ error: "Query inválida" })
-  }
 
-  try {
-    const [job] = await bigquery.createQueryJob({ query })
-    const [rows] = await job.getQueryResults()
-    res.status(200).json(rows)
-  } catch (error: any) {
-    console.error("Erro ao executar a query:", error)
-    res.status(500).json({ error: "Erro ao executar a query", detail: error.message })
-  }
-}

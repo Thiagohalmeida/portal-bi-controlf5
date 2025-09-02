@@ -14,7 +14,7 @@ export default function HomePage() {
       <h1 className="text-4xl font-extrabold mb-4">
         Portal Business Intelligence – Ferramentas
       </h1>
-      <p className="text-lg text-gray-700 mb-8">
+      <p className="text-lg text-gray-700 dark:text-white mb-8">
         Democratizando o acesso aos dados, processos e análises para impulsionar decisões estratégicas em toda a empresa.
       </p>
 

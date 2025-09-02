@@ -90,5 +90,37 @@ export const metadados: DatasetMetadado[] = [
         ]
       }
     ]
+  },
+  {
+    area: "Growth",
+    dataset: "ga4",
+    tabelas: [
+      {
+        nome: "Consolidado_GA4",
+        descricao: "Indicadores GA4",
+        campos: [
+          { nome: "data", tipo: "DATE", descricao: "Date of the event/record" },
+          { nome: "pagepath", tipo: "STRING", descricao: "URL of the page" },
+          { nome: "pagetitle", tipo: "STRING", descricao: "Title of the page" },
+          { nome: "sessionmedium", tipo: "STRING", descricao: "Medium of the session" },
+          { nome: "sessionsource", tipo: "STRING", descricao: "Source of the session" },
+          { nome: "audiencename", tipo: "STRING", descricao: "Name of the audience" },
+          { nome: "city", tipo: "STRING", descricao: "City of the user" },
+          { nome: "devicecategory", tipo: "STRING", descricao: "Category of the device" },              
+          { nome: "propertyid", tipo: "INT64", descricao: "ID of the property" },
+          { nome: "sessions", tipo: "INT64", descricao: "Total sessions" },
+          { nome: "screenpageviews", tipo: "INT64", descricao: "Total screen page views" }, 
+         { nome: "activeusers", tipo: "INT64", descricao: "Total active users" },  
+          { nome: "userengagementduration", tipo: "INT64", descricao: "Total user engagement duration" },
+          { nome: "engagementrate", tipo: "FLOAT64", descricao: "Total engagement rate" },
+          { nome: "conversions", tipo: "FLOAT64", descricao: "Total conversions" },
+          { nome: "totalrevenue", tipo: "FLOAT64", descricao: "Total revenue" },
+          { nome: "bouncerate", tipo: "FLOAT64", descricao: "Total bounce rate" },
+          { nome: "area", tipo: "STRING", descricao: "Área do negócio" },
+          { nome: "produto", tipo: "STRING", descricao: "Produto relacionado" },
+          { nome: "origem", tipo: "STRING", descricao: "Origem da postagem" }
+        ]
+      }
+    ]
   }
 ];

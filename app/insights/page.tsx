@@ -9,6 +9,7 @@ export default function InsightsPage() {
   const [dataInicio, setDataInicio] = useState<string>("");
   const [dataFim, setDataFim] = useState<string>("");
   const [cliente, setCliente] = useState<string>("");
+  const [pagepath, setPagepath] = useState<string>("");
   const [insight, setInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export default function InsightsPage() {
       const res = await fetch("/api/insight-auto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ table, dataInicio, dataFim, cliente }),
+        body: JSON.stringify({ table, dataInicio, dataFim, cliente, pagepath }),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -45,10 +46,7 @@ export default function InsightsPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4">
-      <p className="inline-block bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full mb-4">
-        Insights Automáticos • v1.0
-      </p>
-      <h1 className="text-2xl font-semibold mb-6">Gerar Insight Automático</h1>
+            <h1 className="text-2xl font-semibold mb-6">Insight Inteligente</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-900 p-6 rounded-lg shadow">
         {/* Origem (antes "Tabela") */}
@@ -115,6 +113,21 @@ export default function InsightsPage() {
             value={cliente}
             onChange={(e) => setCliente(e.target.value)}
             required
+          />
+        </div>
+
+        {/* Pagepath */}
+        <div>
+          <label htmlFor="pagepath" className="block mb-1 font-medium text-gray-900 dark:text-gray-100">
+            Página (opcional)
+          </label>
+          <input
+            id="pagepath"
+            type="text"
+            placeholder="Deixe em branco para analisar todas as páginas"
+            className="w-full border rounded px-3 py-2 bg-white text-black dark:bg-gray-800 dark:text-white"
+            value={pagepath}
+            onChange={(e) => setPagepath(e.target.value)}
           />
         </div>
 
