@@ -1,6 +1,6 @@
 import { tableMap, TableMapEntry } from "./tableMap";
 import { getPagePathByPropertyId } from "./propertyIdToPagePathMap";
-import { buildInsightSQL } from "../app/api/query/route"; // Import buildInsightSQL from route.ts
+import { buildInsightSQL } from "./queryBuilder"; // Import buildInsightSQL from queryBuilder.ts
 
 const PROJECT_ID = process.env.BQ_PROJECT_ID || process.env.BQ_PROJECT || "worlddata-439415";
 
