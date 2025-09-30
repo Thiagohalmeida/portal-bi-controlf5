@@ -95,5 +95,30 @@ export const presets: Preset[] = [
       ORDER BY conv DESC
       LIMIT 100
     `.trim(),
+  },
+  // GA4 – Performance por cidade (últimos 30 dias)
+  {
+    area: "Growth",
+    dataset: "ga4",
+    tabela: "Consolidado_GA4",
+    descricao: "GA4 • Performance por cidade (sessões, conversões e receita)",
+    sql: `
+      SELECT
+        city,
+        SUM(sessions) AS sessions,
+        SUM(activeusers) AS active_users,
+        SUM(conversions) AS conv,
+        SUM(totalrevenue) AS revenue,
+        AVG(engagementrate) AS avg_eng_rate,
+        AVG(bouncerate) AS avg_bounce,
+        SAFE_DIVIDE(SUM(conversions), SUM(sessions)) AS conv_rate
+      FROM ` + "`worlddata-439415.ga4.Consolidado_GA4`" + `
+      WHERE data >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+        AND city IS NOT NULL
+        AND city != '(not set)'
+      GROUP BY city
+      ORDER BY conv DESC, sessions DESC
+      LIMIT 100
+    `.trim(),
   }
 ]

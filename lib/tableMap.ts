@@ -8,10 +8,11 @@ export type AggregateMode = "none" | "by_date" | "total";
 export type MetricAgg =
   | { type: "sum" }                                            // soma simples
   | { type: "avg"; weightBy?: string }                         // média (ponderada por weightBy quando fizer sentido)
-  | { type: "ratio"; num: string; den: string };               // derivadas (CTR = clicks/impressions)
+  | { type: "ratio"; num: string; den: string }               // derivadas (CTR = clicks/impressions)
+  | { type: "none" };                                         // campos categóricos sem agregação
 
 // inclui float0
-export type MetricFormat = "int" | "float0" | "float1" | "float2" | "percent1" | "brl2" | "duration_s";
+export type MetricFormat = "int" | "float0" | "float1" | "float2" | "percent1" | "brl2" | "duration_s" | "string";
 
 export interface MetricDef {
   field: string;               // nome do campo no dataset (ou pseudo-campo p/ derivadas)
@@ -51,10 +52,12 @@ export const fmt = {
     v == null ? "N/A" : Math.round(v).toLocaleString("pt-BR"),
   duration_s: (v: number | null | undefined) =>
     v == null ? "N/A" : `${v.toFixed(0)}s`,
+  string: (v: string | null | undefined) =>
+    v == null || v === "" ? "N/A" : String(v),
 };
 
 // ---- Agregadores robustos ----
-export function aggregateMetric(rows: any[], metric: MetricDef): number | null {
+export function aggregateMetric(rows: any[], metric: MetricDef): number | string | null {
   const values = rows.map(r => r?.[metric.field]).filter(v => v != null);
 
   if (metric.agg.type === "sum") {
@@ -80,27 +83,121 @@ export function aggregateMetric(rows: any[], metric: MetricDef): number | null {
     return den > 0 ? num / den : null;
   }
 
+  if (metric.agg.type === "none") {
+    // Para campos categóricos, retorna uma lista dos valores únicos
+    const uniqueValues = [...new Set(values)].filter(v => v != null && v !== "");
+    
+    // Se há apenas um valor único, retorna ele diretamente
+    if (uniqueValues.length === 1) {
+      return uniqueValues[0];
+    }
+    
+    // Se há múltiplos valores, retorna uma string indicando análise segmentada
+    if (uniqueValues.length > 1) {
+      return `${uniqueValues.length} segmentos: ${uniqueValues.slice(0, 3).join(", ")}${uniqueValues.length > 3 ? "..." : ""}`;
+    }
+    
+    return null;
+  }
+
   return null;
 }
 
 // ---- Construção do bloco "facts" ----
-export type FactRow = { label: string; field: string; raw: number | null; formatted: string };
+export type FactRow = { label: string; field: string; raw: number | string | null; formatted: string };
+
+export type SegmentedFact = {
+  segment: string;
+  metrics: { [key: string]: number | string | null };
+};
+
+export function buildSegmentedAnalysis(rows: any[], categoricalField: string, metrics: MetricDef[]): SegmentedFact[] {
+  // Agrupa os dados por valor do campo categórico
+  const groupedData: { [key: string]: any[] } = {};
+  
+  rows.forEach(row => {
+    const segmentValue = row[categoricalField];
+    if (segmentValue != null && segmentValue !== "") {
+      if (!groupedData[segmentValue]) {
+        groupedData[segmentValue] = [];
+      }
+      groupedData[segmentValue].push(row);
+    }
+  });
+  
+  // Calcula métricas para cada segmento
+  const segmentedFacts: SegmentedFact[] = [];
+  
+  Object.entries(groupedData).forEach(([segment, segmentRows]) => {
+    const segmentMetrics: { [key: string]: number | string | null } = {};
+    
+    metrics.forEach(metric => {
+      if (metric.agg.type !== "none") {
+        segmentMetrics[metric.field] = aggregateMetric(segmentRows, metric);
+      }
+    });
+    
+    segmentedFacts.push({
+      segment,
+      metrics: segmentMetrics
+    });
+  });
+  
+  return segmentedFacts;
+}
 
 export function buildFacts(rows: any[], metrics: MetricDef[]): FactRow[] {
-  return metrics.map(m => {
+  const facts = metrics.map(m => {
     const val = aggregateMetric(rows, m);
     let formatted: string;
     switch (m.format) {
-      case "brl2": formatted = fmt.brl2(val); break;
-      case "percent1": formatted = fmt.percent1(val); break;
-      case "float0": formatted = fmt.float0(val); break;
-      case "float1": formatted = fmt.float1(val); break;
-      case "float2": formatted = fmt.float2(val); break;
-      case "duration_s": formatted = fmt.duration_s(val); break;
-      default: formatted = fmt.int(val); break;
+      case "brl2": formatted = fmt.brl2(val as number); break;
+      case "percent1": formatted = fmt.percent1(val as number); break;
+      case "float0": formatted = fmt.float0(val as number); break;
+      case "float1": formatted = fmt.float1(val as number); break;
+      case "float2": formatted = fmt.float2(val as number); break;
+      case "duration_s": formatted = fmt.duration_s(val as number); break;
+      case "string": formatted = fmt.string(val as string); break;
+      default: formatted = fmt.int(val as number); break;
     }
     return { label: m.label, field: m.field, raw: val, formatted };
   });
+
+  // Adiciona análise segmentada para campos categóricos com múltiplos valores
+  const categoricalFields = metrics.filter(m => m.agg.type === "none");
+  const numericMetrics = metrics.filter(m => m.agg.type !== "none");
+  
+  categoricalFields.forEach(catField => {
+    const uniqueValues = [...new Set(rows.map(r => r[catField.field]))].filter(v => v != null && v !== "");
+    
+    if (uniqueValues.length > 1) {
+      // Adiciona análise segmentada para este campo categórico
+      const segmentedData = buildSegmentedAnalysis(rows, catField.field, numericMetrics);
+      
+      // Adiciona fatos para os top 3 segmentos por sessões (ou primeira métrica numérica disponível)
+      const firstNumericField = numericMetrics.find(m => m.agg.type === "sum")?.field || numericMetrics[0]?.field;
+      
+      if (firstNumericField && segmentedData.length > 0) {
+        const topSegments = segmentedData
+          .sort((a, b) => (b.metrics[firstNumericField] as number || 0) - (a.metrics[firstNumericField] as number || 0))
+          .slice(0, 3);
+        
+        topSegments.forEach((segment, index) => {
+          const segmentLabel = `${catField.label} #${index + 1}`;
+          const segmentValue = `${segment.segment}: ${fmt.int(segment.metrics[firstNumericField] as number)}`;
+          
+          facts.push({
+            label: segmentLabel,
+            field: `${catField.field}_segment_${index + 1}`,
+            raw: segment.segment,
+            formatted: segmentValue
+          });
+        });
+      }
+    }
+  });
+
+  return facts;
 }
 
 // =========================
@@ -183,6 +280,7 @@ const PROMPT_GA4 = `
 Você é um analista sênior de dados. Use APENAS os "facts" (JSON) anexados ao final — cada item tem {label, value} já formatado.
 - NÃO recalcule, NÃO invente, NÃO use placeholders. Se faltar, escreva "N/A".
 - NÃO mencione métricas de mídia paga (CTR, CPC, CPA, ROAS, Impressões/Cliques de anúncio).
+- IMPORTANTE: Se houver dados segmentados nos facts (ex: "Dispositivo: desktop", "Cidade: São Paulo"), use-os para análise específica por segmento.
 
 Análise para o período de {dataInicio} a {dataFim}.
 {pagepath, Página analisada: {pagepath}}
@@ -206,14 +304,35 @@ Formate em Markdown nesta ordem:
 - Conv./Sessão
 - PV/Sessão
 
-### 3) Diagnóstico (até 6 bullets)
+### 3) Análise por Segmentos
+**IMPORTANTE:** Use os dados segmentados dos facts para análise específica. Se não houver dados segmentados, escreva "Dados não disponíveis para análise segmentada".
+
+**Por Dispositivo:**
+- Compare performance entre desktop, mobile e tablet usando os dados dos facts
+- Identifique diferenças em bounce rate, tempo de engajamento e conversões por dispositivo
+- Cite números específicos dos segmentos (ex: "Desktop: 2.5 PV/Sessão vs Mobile: 1.8 PV/Sessão")
+
+**Por Localização:**
+- Liste as principais cidades por sessões e conversões usando os dados dos facts
+- Compare performance entre diferentes regiões com números específicos
+- Identifique oportunidades em mercados específicos baseado nos dados
+
+### 4) Diagnóstico (até 6 bullets)
 - Relação qualidade × conversão; sinais de atrito.
+- **Dispositivos:** Use dados específicos dos segmentos para identificar dispositivos com maior/menor performance
+- **Geografia:** Análise baseada nos dados reais de localização dos facts
+- **Experiência do usuário:** Diferenças na jornada por segmento com base nos dados disponíveis
 
-### 4) Recomendações
-- UX/Conteúdo; Jornada; Performance.
+### 5) Recomendações
+- **UX/Conteúdo:** Melhorias gerais na experiência
+- **Dispositivos:** Otimizações específicas baseadas na performance real por dispositivo
+- **Localização:** Estratégias regionais baseadas nos dados de performance por cidade
+- **Performance:** Melhorias técnicas e de velocidade
 
-### 5) Próximos passos (3–5)
-- Metas claras (ex.: +0,2 PV/Sessão; +0,5 pp ER).
+### 6) Próximos passos (3–5)
+- Metas claras (ex.: +0,2 PV/Sessão; +0,5 pp ER)
+- Testes A/B por dispositivo e região baseados nos insights dos segmentos
+- Implementação de melhorias segmentadas
 `;
 
 // Google Ads
@@ -221,34 +340,50 @@ const PROMPT_GOOGLE_ADS = `
 Você é um especialista em Google Ads. Use APENAS os "facts" (JSON) anexados — {label, value} já formatado.
 - NÃO recalcule, NÃO invente, NÃO use placeholders. Se faltar, "N/A".
 - NÃO mencione métricas de analytics (Sessões, PV/Sessão, Tempo engajado).
+- Analise o período de {dataInicio} a {dataFim} para o cliente {cliente}.
 
 Formate em Markdown nesta ordem:
 
 ### 1) Resumo (3 bullets)
 - Eficiência do funil (CTR, Taxa de conversão) e impacto em CPC, CPA, ROAS.
-- O que melhorou/piorou.
-- Quick wins.
+- Principais variações do período e hipóteses sobre causas (sazonalidade, concorrência, mudanças na conta).
+- Quick wins identificados para otimização imediata.
 
 ### 2) KPIs (tabela 2 colunas)
-- Impressões
-- Cliques
-- CTR
-- Gasto
-- CPC
-- Conversões
-- Taxa de conversão
-- CPA
-- Receita
-- ROAS
+| Métrica             | Valor         |
+|---------------------|---------------|
+| Impressões          | [valor]       |
+| Cliques             | [valor]       |
+| CTR                 | [valor]       |
+| Gasto               | [valor]       |
+| CPC                 | [valor]       |
+| Conversões          | [valor]       |
+| Taxa de conversão   | [valor]       |
+| CPA                 | [valor]       |
+| Receita             | [valor]       |
+| ROAS                | [valor]       |
 
 ### 3) Diagnóstico (até 6 bullets)
-- Gargalos (CTR bom × CVR baixo; CPC alto × CPA alto; ROAS baixo).
+- **Funil de conversão:** Analise CTR vs Taxa de conversão para identificar gargalos.
+- **Eficiência de custo:** Relação entre CPC, CPA e ROAS para avaliar rentabilidade.
+- **Volume vs Qualidade:** Balance entre impressões/cliques e conversões efetivas.
+- **Competitividade:** Sinais de pressão competitiva através de métricas de custo.
+- **Segmentação:** Oportunidades de melhoria na segmentação de público.
+- **Sazonalidade:** Padrões temporais que impactam performance.
 
 ### 4) Recomendações
-- Termos; Anúncios; Lances/Orçamento; Página de destino.
+- **Palavras-chave:** Otimizações em termos de busca, correspondências e palavras negativas.
+- **Anúncios:** Melhorias em copy, extensões e testes A/B de criativos.
+- **Lances/Orçamento:** Ajustes de estratégias de lance e distribuição de orçamento.
+- **Segmentação:** Refinamento de públicos, localização e dispositivos.
+- **Página de destino:** Otimizações para melhorar taxa de conversão pós-clique.
+- **Estrutura da conta:** Reorganização de campanhas e grupos de anúncios se necessário.
 
 ### 5) Próximos passos (3–5)
-- Experimentos com metas (ex.: +0,3 pp CVR; -15% CPA).
+- Ações específicas com metas quantificadas (ex.: aumentar CVR em 0,3 pp, reduzir CPA em 15%).
+- Cronograma de implementação e testes A/B prioritários.
+- Métricas de acompanhamento para validar melhorias.
+- Revisões de performance e ajustes contínuos.
 `;
 
 // Facebook Ads — Funil (tráfego pago)
@@ -390,7 +525,7 @@ Formate em Markdown nesta ordem:
 // =========================
 
 // GA4 (taxas ponderadas por sessões)
-const GA4Metrics: MetricDef[] = [
+export const GA4Metrics: MetricDef[] = [
   { field: "sessions",               label: "Sessões",                  agg: { type: "sum" },                          format: "int" },
   { field: "activeusers",            label: "Usuários ativos",          agg: { type: "sum" },                          format: "int" },
   { field: "screenpageviews",        label: "Pageviews",                agg: { type: "sum" },                          format: "int" },
@@ -399,6 +534,9 @@ const GA4Metrics: MetricDef[] = [
   { field: "bouncerate",             label: "Bounce rate",              agg: { type: "avg", weightBy: "sessions" },    format: "percent1" },
   { field: "conversions",            label: "Conversões",               agg: { type: "sum" },                          format: "int" },
   { field: "totalrevenue",           label: "Receita",                  agg: { type: "sum" },                          format: "brl2" },
+  // Campos categóricos para análise segmentada
+  { field: "devicecategory",         label: "Dispositivo",              agg: { type: "none" },                         format: "string" },
+  { field: "city",                   label: "Cidade",                   agg: { type: "none" },                         format: "string" },
   // Derivadas
   { field: "conv_per_session",       label: "Conv./Sessão",             agg: { type: "ratio", num: "conversions", den: "sessions" },        format: "float2" },
   { field: "pv_per_session",         label: "PV/Sessão",                agg: { type: "ratio", num: "screenpageviews", den: "sessions" },     format: "float2" },
@@ -463,6 +601,7 @@ const EngajamentoInstagramMetrics: MetricDef[] = [
 
 // Google Ads
 const GoogleAdsMetrics: MetricDef[] = [
+  // Métricas principais
   { field: "impressions",            label: "Impressões",          agg: { type: "sum" },  format: "int" },
   { field: "clicks",                 label: "Cliques",             agg: { type: "sum" },  format: "int" },
   { field: "ctr",                    label: "CTR",                 agg: { type: "ratio", num: "clicks", den: "impressions" }, format: "percent1" },
@@ -473,6 +612,11 @@ const GoogleAdsMetrics: MetricDef[] = [
   { field: "cpa",                    label: "CPA",                 agg: { type: "ratio", num: "spend", den: "conversions" }, format: "brl2" },
   { field: "all_conversions_value",  label: "Receita",             agg: { type: "sum" },  format: "brl2" },
   { field: "roas",                   label: "ROAS",                agg: { type: "ratio", num: "all_conversions_value", den: "spend" }, format: "float2" },
+  
+  // Novos campos para análise detalhada
+  { field: "cost_per_conversion",    label: "Custo por conversão", agg: { type: "sum" },  format: "brl2", optional: true },
+  { field: "cost_per_all_conversions", label: "Custo por todas conversões", agg: { type: "sum" }, format: "brl2", optional: true },
+  { field: "conversions_value",      label: "Valor das conversões", agg: { type: "sum" }, format: "brl2", optional: true },
 ];
 
 // =========================

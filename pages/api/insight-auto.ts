@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method !== "POST")
       return res.status(405).json({ error: "Method not allowed" });
 
-    const { table, dataInicio, dataFim, cliente, pagepath } = req.body;
+    const { table, dataInicio, dataFim, cliente, pagepath, selectedCampaigns } = req.body;
     if (!table || !dataInicio || !dataFim || !cliente) {
       return res.status(400).json({ error: "Parâmetros obrigatórios: table, dataInicio, dataFim e cliente" });
     }
@@ -24,10 +24,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const { dataset, table: tableId, dateField, clientField, metrics, prompt: promptTemplate } = mapEntry;
-    const clienteFilter = cliente ? `AND LOWER(TRIM(${clientField})) = LOWER(TRIM("${cliente}"))` : "";
+    
+    // Processar filtro de cliente para lidar com múltiplos clientes
+    let clienteFilter = "";
+    if (cliente) {
+      const clientes = cliente.split(',').map((c: string) => c.trim()).filter((c: string) => c.length > 0);
+      if (clientes.length === 1) {
+        clienteFilter = `AND LOWER(TRIM(${clientField})) = LOWER(TRIM("${clientes[0]}"))`;
+      } else if (clientes.length > 1) {
+        const clientesList = clientes.map((c: string) => `LOWER(TRIM("${c}"))`).join(', ');
+        clienteFilter = `AND LOWER(TRIM(${clientField})) IN (${clientesList})`;
+      }
+    }
+    console.log("cliente recebido:", cliente);
+    console.log("clienteFilter:", clienteFilter);
     
     // Adiciona filtro de pagepath se fornecido
     const pagepathFilter = pagepath ? `AND pagepath = "${pagepath}"` : "";
+    console.log("pagepathFilter:", pagepathFilter);
+    
+    // Adiciona filtro de campanhas selecionadas se for Google Ads e houver seleção
+    let campaignFilter = "";
+    if (table === "CampanhaGoogleAds" && selectedCampaigns && selectedCampaigns.length > 0) {
+      console.log("selectedCampaigns recebidas:", selectedCampaigns);
+      const campaignIds = selectedCampaigns.map((id: string) => id).join(", ");
+      console.log("campaignIds processados:", campaignIds);
+      campaignFilter = `AND campaign_id IN (${campaignIds})`;
+      console.log("campaignFilter final:", campaignFilter);
+    }
 
     // Vamos processar as métricas diretamente na consulta SQL
 
@@ -84,8 +108,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       WHERE ${dateField} BETWEEN '${dataInicio}' AND '${dataFim}'
       ${clienteFilter}
       ${pagepathFilter}
+      ${campaignFilter}
       GROUP BY cliente
     `;
+    
+    console.log("Query SQL completa:", query);
 
     const projectId = process.env.BQ_PROJECT_ID!;
     const clientEmail = process.env.BQ_CLIENT_EMAIL!;
@@ -115,11 +142,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let prompt = promptTemplate
       .replace("{dataInicio}", dataInicio)
-      .replace("{dataFim}", dataFim);
+      .replace("{dataFim}", dataFim)
+      .replace("{cliente}", cliente);
       
     // Adiciona informação sobre pagepath no prompt se fornecido
     if (pagepath) {
       prompt = prompt.replace("{pagepath}", pagepath);
+    }
+    
+    // Adiciona informação sobre campanhas selecionadas no prompt se aplicável
+    if (table === "CampanhaGoogleAds" && selectedCampaigns && selectedCampaigns.length > 0) {
+      prompt += `\n\nNOTA: Esta análise considera apenas as campanhas selecionadas (${selectedCampaigns.length} campanhas específicas) e não todas as campanhas do cliente.`;
     }
 
     rows.forEach((row: any) => {
@@ -144,6 +177,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log("[insight-auto] Dados processados:", {
       clienteInfo: rows.map(r => r.cliente),
       pagepath: pagepath || "Todos",
+      campanhasSelecionadas: selectedCampaigns ? `${selectedCampaigns.length} campanhas específicas` : "Todas as campanhas",
       metricasDisponiveis: metrics.map((m: { field: string; label: string; agg: { type: string } }) => ({ campo: m.field, label: m.label, tipo: m.agg.type })),
       valoresEncontrados: rows.map(r => {
         const valores: Record<string, any> = {};

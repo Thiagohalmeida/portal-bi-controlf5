@@ -56,6 +56,9 @@ const FLOAT_COLUMNS = new Set<string>([
   "total_spend",
   "valor_total_compras",
   "all_conversions_value",
+  "cost_per_conversion",
+  "cost_per_all_conversions",
+  "conversions_value",
   // Pacing
   "Orcamento_Total",
   "Gasto_Acumulado",
@@ -156,6 +159,13 @@ export function buildInsightSQL(
   if (needsGroupBy) {
     if (aggregate === "by_date") groupBy.push(`__date`);
     groupBy.push(`__client`);
+    
+    // Adicionar campos categóricos (NON_AGG_COLS) ao GROUP BY
+    cols.forEach(col => {
+      if (NON_AGG_COLS.has(col)) {
+        groupBy.push(`\`${col}\``);
+      }
+    });
   }
   const groupClause = groupBy.length ? `GROUP BY ${groupBy.join(", ")}` : "";
 
