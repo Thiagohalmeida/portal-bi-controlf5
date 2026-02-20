@@ -1,0 +1,117 @@
+[{
+  "column_name": "cliente",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "tipo_cliente",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "data",
+  "data_type": "DATE",
+  "is_nullable": "YES"
+}, {
+  "column_name": "media_id",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "media_type",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "media_product_type",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "permalink",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "impressions",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "reach",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "like_count",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "comments_count",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "saved",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "views",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "account_id",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "ig_id",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "owner",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "shortcode",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "media_url",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "thumbnail_url",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "caption",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "dataddo_extraction_timestamp",
+  "data_type": "TIMESTAMP",
+  "is_nullable": "YES"
+}, {
+  "column_name": "follows",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "profile_visits",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "total_interactions",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "replies",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "likes",
+  "data_type": "INT64",
+  "is_nullable": "YES"
+}, {
+  "column_name": "area",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "produto",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}, {
+  "column_name": "origem",
+  "data_type": "STRING",
+  "is_nullable": "YES"
+}]

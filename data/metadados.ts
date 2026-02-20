@@ -1,14 +1,15 @@
 // data/metadados.ts
 // Tipagens explícitas
-type Campo = {
+export type Campo = {
   nome: string;
   tipo: string;
-  descricao: string;
+  descricao?: string;
 };
 
-type Tabela = {
+export type Tabela = {
   nome: string;
   descricao: string;
+  campoDataPadrao?: string;
   campos: Campo[];
 };
 
@@ -26,6 +27,7 @@ export const metadados: DatasetMetadado[] = [
       {
         nome: "EngajamentoFacebook",
         descricao: "Resultado das postagens no Facebook",
+        campoDataPadrao: "data",
         campos: [
           { nome: "cliente", tipo: "STRING", descricao: "Identificador do cliente" },
           { nome: "data", tipo: "DATE", descricao: "Data da publicação" },
@@ -62,6 +64,7 @@ export const metadados: DatasetMetadado[] = [
       {
         nome: "EngajamentoInstagram",
         descricao: "Dados de engajamento das postagens no Instagram",
+        campoDataPadrao: "data",
         campos: [
           { nome: "cliente", tipo: "STRING", descricao: "Identificador do cliente" },
           { nome: "data", tipo: "DATE", descricao: "Data da publicação" },
@@ -98,6 +101,7 @@ export const metadados: DatasetMetadado[] = [
       {
         nome: "Consolidado_GA4",
         descricao: "Indicadores GA4",
+        campoDataPadrao: "data",
         campos: [
           { nome: "data", tipo: "DATE", descricao: "Date of the event/record" },
           { nome: "pagepath", tipo: "STRING", descricao: "URL of the page" },
