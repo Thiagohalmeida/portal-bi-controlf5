@@ -47,8 +47,50 @@ export function exportXLSX(data: any[], filename = "export.xlsx") {
 /**
  * Copia texto para a prancheta.
  */
-export function copiarParaPrancheta(text: string) {
-  navigator.clipboard.writeText(text);
+export async function copiarParaPrancheta(text: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fallback below
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const success = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return success;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Baixa conteudo textual para arquivo local.
+ */
+export function downloadTextFile(
+  content: string,
+  filename: string,
+  mimeType = "application/json;charset=utf-8"
+) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Função utilitária para concatenar classes condicionalmente
