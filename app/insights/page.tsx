@@ -31,6 +31,8 @@ interface Client {
   ultimaData: string;
 }
 
+type InsightProvider = "auto" | "openai" | "gemini";
+
 export default function InsightsPage() {
   const [table, setTable] = useState<string>("");
   const [dataInicio, setDataInicio] = useState<string>("");
@@ -53,6 +55,16 @@ export default function InsightsPage() {
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [showCampaignSelection, setShowCampaignSelection] = useState(false);
+  const [provider, setProvider] = useState<InsightProvider>("auto");
+  const [providerUsed, setProviderUsed] = useState<string | null>(null);
+  const [fallbackFrom, setFallbackFrom] = useState<string | null>(null);
+
+  const providerLabel = (value: string | null) => {
+    if (value === "openai") return "GPT (OpenAI)";
+    if (value === "gemini") return "Gemini";
+    if (value === "auto") return "Auto";
+    return value || "N/A";
+  };
 
   // Função para buscar clientes
   const fetchClients = async (search: string = "") => {
@@ -231,6 +243,8 @@ export default function InsightsPage() {
     e.preventDefault();
     setInsight(null);
     setError(null);
+    setProviderUsed(null);
+    setFallbackFrom(null);
 
     if (!table || !dataInicio || !dataFim || selectedClients.length === 0) {
       setError("Parâmetros obrigatórios: tabela, data início, data fim e pelo menos um cliente.");
@@ -239,7 +253,14 @@ export default function InsightsPage() {
 
     setLoading(true);
     try {
-      const requestBody: any = { table, dataInicio, dataFim, cliente: selectedClients.join(', '), pagepath };
+      const requestBody: any = {
+        table,
+        dataInicio,
+        dataFim,
+        cliente: selectedClients.join(', '),
+        pagepath,
+        provider,
+      };
       
       // Incluir campanhas selecionadas se for Google Ads e houver seleção
       if (table === "CampanhaGoogleAds" && selectedCampaigns.length > 0) {
@@ -256,6 +277,8 @@ export default function InsightsPage() {
         setError(body.error || "Erro ao gerar insight.");
       } else {
         setInsight(body.insight);
+        setProviderUsed(body.providerUsed || null);
+        setFallbackFrom(body.fallbackFrom || null);
       }
     } catch (err: any) {
       setError(err.message || "Erro de comunicação.");
@@ -287,6 +310,22 @@ export default function InsightsPage() {
                 {label}
               </option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="provider" className="block mb-1 font-medium text-gray-900 dark:text-gray-100">
+            Motor de IA <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="provider"
+            className="w-full border rounded px-3 py-2 bg-white text-black dark:bg-gray-800 dark:text-white"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as InsightProvider)}
+            required
+          >
+            <option value="auto">Auto (GPT e fallback Gemini)</option>
+            <option value="openai">GPT (OpenAI)</option>
+            <option value="gemini">Gemini</option>
           </select>
         </div>
 
@@ -633,6 +672,17 @@ export default function InsightsPage() {
       {insight && (
         <div className="mt-8 bg-white dark:bg-gray-900 p-6 rounded-lg shadow">
           <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Insight Gerado</h2>
+          {providerUsed && (
+            <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+              Motor usado: <strong>{providerLabel(providerUsed)}</strong>
+              {fallbackFrom && (
+                <span>
+                  {" "}
+                  (fallback automatico de <strong>{providerLabel(fallbackFrom)}</strong>)
+                </span>
+              )}
+            </p>
+          )}
           <pre className="whitespace-pre-wrap text-gray-900 dark:text-gray-100">{insight}</pre>
           
           {/* Botão para mostrar/ocultar o relatório infográfico */}
